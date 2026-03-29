@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"go-auth-backend-api/internal/app"
+	"go-auth-backend-api/app"
 	"net/http"
 )
 

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"go-auth-backend-api/internal/app"
+	"go-auth-backend-api/app"
 	"log"
 	"net/http"
 	"os"
