@@ -2,11 +2,11 @@ package authservice
 
 import (
 	"errors"
+	"fmt"
 	authmodel "go-auth-backend-api/internal/model/AuthModel"
 	"go-auth-backend-api/internal/repository"
 	"go-auth-backend-api/pkg/mailer"
 	"go-auth-backend-api/pkg/utils"
-	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -77,11 +77,10 @@ func RegisterService(input RegisterInput) (*RegisterResult, error) {
 		return nil, errors.New("Failed to save Token")
 	}
 
-	go func() {
-		if err := mailer.SendEmailVerificationEmail(user.Email, user.DisplayName, rawToken); err != nil {
-			log.Println("Failed to send verification email:", err)
-		}
-	}()
+	// Send synchronously: on Vercel/serverless, goroutines are often cut off as soon as the HTTP response returns.
+	if err := mailer.SendEmailVerificationEmail(user.Email, user.DisplayName, rawToken); err != nil {
+		return nil, fmt.Errorf("failed to send verification email: %w", err)
+	}
 
 	return &RegisterResult{
 		Email:       user.Email,

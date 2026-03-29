@@ -2,6 +2,7 @@ package authservice
 
 import (
 	"errors"
+	"fmt"
 	"go-auth-backend-api/internal/repository"
 	"go-auth-backend-api/pkg/mailer"
 	"go-auth-backend-api/pkg/redis"
@@ -35,11 +36,10 @@ func ForgotPasswordService(email string) error {
 		return err
 	}
 
-	go func() {
-		if sendErr := mailer.SendOtpEmail(email, otpStr); sendErr != nil {
-			// intentionally ignored to keep request non-blocking
-		}
-	}()
+	// Send synchronously so serverless (e.g. Vercel) does not terminate before SMTP completes.
+	if err := mailer.SendOtpEmail(email, otpStr); err != nil {
+		return fmt.Errorf("failed to send OTP email: %w", err)
+	}
 
 	return nil
 }
