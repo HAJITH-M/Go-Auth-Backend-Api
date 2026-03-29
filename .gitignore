@@ -1,0 +1,30 @@
+# env
+.env
+.env.*
+!.env.example
+
+# build
+bin/
+build/
+dist/
+*.out
+
+# logs
+*.log
+logs/
+
+# air
+.air/
+tmp/
+
+# database
+*.db
+*.sqlite3
+
+# ide
+.vscode/
+.idea/
+
+# os
+.DS_Store
+Thumbs.db

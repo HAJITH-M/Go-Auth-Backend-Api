@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OAuth Success</title>
+    <style>
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+        margin: 40px;
+        color: #111;
+      }
+      .box {
+        border: 1px solid #e5e5e5;
+        border-radius: 10px;
+        padding: 18px 20px;
+        max-width: 720px;
+      }
+      .kv {
+        margin-top: 12px;
+        display: grid;
+        grid-template-columns: 140px 1fr;
+        gap: 8px 12px;
+        align-items: center;
+        word-break: break-word;
+      }
+      .k {
+        color: #444;
+        font-weight: 600;
+      }
+      .hint {
+        margin-top: 16px;
+        color: #555;
+        font-size: 14px;
+        line-height: 1.4;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <h2>OAuth login successful</h2>
+      <div class="kv">
+        <div class="k">provider</div>
+        <div id="provider">google</div>
+        <div class="k">user_id</div>
+        <div id="user_id">-</div>
+        <div class="k">email</div>
+        <div id="email">-</div>
+        <div class="k">display_name</div>
+        <div id="display_name">-</div>
+      </div>
+      <div class="hint">
+        Your backend has also set the <code>refresh_token</code> cookie for OAuth refresh.
+        You can now call your protected endpoints using <code>access_token</code> returned by the backend.
+      </div>
+
+      <div class="kv" style="margin-top: 18px;">
+        <div class="k">access_token</div>
+        <div id="access_token" style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 12px; max-width: 520px; overflow-wrap: anywhere;">-</div>
+      </div>
+    </div>
+
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const accessTokenFromUrl = params.get("access_token");
+      const providerFromUrl = params.get("provider") || "google";
+      const userIdFromUrl = params.get("user_id");
+      const emailFromUrl = params.get("email");
+      const displayNameFromUrl = params.get("display_name");
+
+      // If user opens index.html in another tab, URL params may be missing.
+      // So we persist last successful login values into localStorage.
+      const accessToken = accessTokenFromUrl || localStorage.getItem("access_token") || null;
+      const provider = providerFromUrl || localStorage.getItem("provider") || "google";
+      const userId = userIdFromUrl || localStorage.getItem("user_id") || "-";
+      const email = emailFromUrl || localStorage.getItem("email") || "-";
+      const displayName = displayNameFromUrl || localStorage.getItem("display_name") || "-";
+
+      document.getElementById("provider").textContent = provider;
+      document.getElementById("user_id").textContent = userId;
+      document.getElementById("email").textContent = email;
+      document.getElementById("display_name").textContent = displayName;
+      document.getElementById("access_token").textContent = accessToken || "-";
+
+      // Persist values when we *do* receive them from backend.
+      if (accessTokenFromUrl) {
+        localStorage.setItem("access_token", accessTokenFromUrl);
+        localStorage.setItem("provider", providerFromUrl);
+        if (userIdFromUrl) localStorage.setItem("user_id", userIdFromUrl);
+        if (emailFromUrl) localStorage.setItem("email", emailFromUrl);
+        if (displayNameFromUrl) localStorage.setItem("display_name", displayNameFromUrl);
+
+        // Remove sensitive URL params after reading them.
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+
+      // If access_token is expired, refresh it using the HttpOnly refresh_token cookie.
+      // Your backend refresh endpoint: POST http://localhost:8000/api/v1/auth/refresh
+      async function refreshIfAccessTokenExpired() {
+        const token = localStorage.getItem("access_token");
+        if (!token) return;
+
+        // Decode JWT payload (no signature verification; only used to read `exp`).
+        const parts = token.split(".");
+        if (parts.length < 2) return;
+
+        const payloadB64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+        const payloadJson = decodeURIComponent(
+          atob(payloadB64)
+            .split("")
+            .map((c) => "%" + c.charCodeAt(0).toString(16).padStart(2, "0"))
+            .join("")
+        );
+        const payload = JSON.parse(payloadJson);
+
+        const exp = payload.exp; // seconds since epoch
+        if (!exp) return;
+
+        const now = Math.floor(Date.now() / 1000);
+        // Refresh 30s before expiry to avoid race conditions.
+        if (now < exp - 30) return;
+
+        try {
+          const res = await fetch("http://localhost:8000/api/v1/auth/refresh", {
+            method: "POST",
+            credentials: "include"
+          });
+
+          if (!res.ok) return;
+          const data = await res.json();
+          if (data && data.access_token) {
+            localStorage.setItem("access_token", data.access_token);
+            document.getElementById("access_token").textContent = data.access_token;
+          }
+        } catch (e) {
+          // Ignore refresh errors; user may need to login again.
+        }
+      }
+
+      refreshIfAccessTokenExpired();
+    </script>
+  </body>
+</html>
+
