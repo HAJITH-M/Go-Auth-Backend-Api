@@ -10,7 +10,7 @@ import (
 func main() {
 	h, err := app.Handler()
 	if err != nil {
-		log.Fatalf("❌ bootstrap failed: %v", err)
+		log.Fatalf("❌ Application initialization failed: %v", err)
 	}
 
 	port := os.Getenv("PORT")
