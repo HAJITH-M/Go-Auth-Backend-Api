@@ -34,7 +34,7 @@ func Handler() (http.Handler, error) {
 			return
 		}
 
-		log.Println("✅ Database connected successfully")
+		log.Println("Database connected successfully")
 		middleware.Setup(r)
 		router.SetUpRouter(r)
 
