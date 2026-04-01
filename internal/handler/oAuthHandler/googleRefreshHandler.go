@@ -2,6 +2,7 @@ package oauthhandler
 
 import (
 	"context"
+	autherrors "go-auth-backend-api/internal/errors"
 	"go-auth-backend-api/internal/config/authconfig"
 	"go-auth-backend-api/internal/config/env"
 	"go-auth-backend-api/internal/repository"
@@ -28,7 +29,7 @@ func RefreshAccessToken(c *gin.Context) {
 
 	method, err := repository.GetAuthenticationMethodByUserAndProviderRepo(claims.UserID, "google")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load oauth credentials"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": autherrors.ErrOAuthFailedToLoadCredentials.Error()})
 		return
 	}
 	if method == nil || method.OauthRefreshToken == "" {
@@ -39,7 +40,7 @@ func RefreshAccessToken(c *gin.Context) {
 	token := &oauth2.Token{RefreshToken: method.OauthRefreshToken}
 	newToken, err := authconfig.GoogleOAuthConfig().TokenSource(context.Background(), token).Token()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to refresh token"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": autherrors.ErrOAuthFailedToRefreshGoogleToken.Error()})
 		return
 	}
 
@@ -50,7 +51,7 @@ func RefreshAccessToken(c *gin.Context) {
 	}
 
 	if err := repository.UpdateAuthenticationMethodOauthTokensByMethodIDRepo(method.ID, newToken.RefreshToken, expiryPtr); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to persist oauth refresh token"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": autherrors.ErrOAuthFailedToPersistRefreshToken.Error()})
 		return
 	}
 

@@ -1,7 +1,7 @@
 package authservice
 
 import (
-	"errors"
+	autherrors "go-auth-backend-api/internal/errors"
 	"go-auth-backend-api/internal/repository"
 	"go-auth-backend-api/pkg/utils"
 )
@@ -23,15 +23,15 @@ func ChangePasswordService(input ChangePasswordInput) error {
 
 	passMatch := utils.CompareHashedPassword(storedPass, userOldPass)
 	if passMatch != nil {
-		return errors.New("old password doesn't match")
+		return autherrors.ErrOldPasswordDoesntMatch
 	}
 	newPassMatch := utils.CompareHashedPassword(storedPass, userNewPass)
 	if newPassMatch == nil {
-		return errors.New("New password should be different from old password")
+		return autherrors.ErrNewPasswordShouldDifferFromOld
 	}
 
 	if err := repository.ChangePasswordRepo(userEmail, userNewPassHash); err != nil {
-		return errors.New("Failed to update Password")
+		return autherrors.ErrFailedToUpdatePasswordChange
 	}
 
 	return nil
@@ -40,12 +40,12 @@ func ChangePasswordService(input ChangePasswordInput) error {
 func ForgotPasswordUpdateService(email, newPassword string) error {
 	authPass, err := repository.GetUserPasswordRepo(email)
 	if err != nil {
-		return errors.New("failed to get password")
+		return autherrors.ErrFailedToGetPassword
 	}
 
 	err = utils.CompareHashedPassword(authPass, newPassword)
 	if err == nil {
-		return errors.New("new password should not be same as old password")
+		return autherrors.ErrNewPasswordSameAsCurrent
 	}
 
 	hashPassword, err := utils.GeneratePasswordWithHash(newPassword)
@@ -55,12 +55,12 @@ func ForgotPasswordUpdateService(email, newPassword string) error {
 
 	err = repository.ChangePasswordRepo(email, hashPassword)
 	if err != nil {
-		return errors.New("failed to update password")
+		return autherrors.ErrFailedToUpdatePassword
 	}
 
 	err = repository.UpdateUserAccountStatusRepo(email, "active")
 	if err != nil {
-		return errors.New("failed to update status")
+		return autherrors.ErrFailedToUpdateStatus
 	}
 
 	return nil

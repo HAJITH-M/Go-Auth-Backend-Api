@@ -1,6 +1,8 @@
 package ratelimiter
 
 import (
+	"errors"
+	autherrors "go-auth-backend-api/internal/errors"
 	ratelimiterservice "go-auth-backend-api/internal/service/rateLimiterService"
 	"net/http"
 
@@ -16,7 +18,7 @@ func RateLimiterMiddleware(rateLimitKey string, countLimit int64) gin.HandlerFun
 
 		if err != nil {
 
-			if err.Error() == "Rate Limit exceeded try after 1 minute" {
+			if errors.Is(err, autherrors.ErrRateLimitExceeded) {
 				c.JSON(http.StatusTooManyRequests, gin.H{"error": "try again in 1 minute"})
 				c.Abort()
 				return

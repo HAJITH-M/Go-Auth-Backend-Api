@@ -1,6 +1,8 @@
 package authhandler
 
 import (
+	"errors"
+	autherrors "go-auth-backend-api/internal/errors"
 	authservice "go-auth-backend-api/internal/service/authService"
 	"go-auth-backend-api/pkg/utils"
 	"net/http"
@@ -23,12 +25,12 @@ func ChangePasswordHandler(c *gin.Context) {
 	})
 
 	if err != nil {
-		if err.Error() == "old password doesn't match" {
+		if errors.Is(err, autherrors.ErrOldPasswordDoesntMatch) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 			return
 		}
 
-		if err.Error() == "New password should be different from old password" {
+		if errors.Is(err, autherrors.ErrNewPasswordShouldDifferFromOld) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Old and New Password are same"})
 			return
 		}
@@ -66,7 +68,7 @@ func VerifyForgotPasswordHandler(c *gin.Context) {
 
 	err := authservice.VerifyForgotPasswordOtp(req.Email, req.Otp)
 	if err != nil {
-		if err.Error() == "Invalid OTP" {
+		if errors.Is(err, autherrors.ErrInvalidOTP) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -88,12 +90,12 @@ func ForgotPasswordUpdateHandler(c *gin.Context) {
 
 	err := authservice.ForgotPasswordUpdateService(req.Email, req.Password)
 	if err != nil {
-		if err.Error() == "new password should not be same as old password" {
+		if errors.Is(err, autherrors.ErrNewPasswordSameAsCurrent) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update password"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": autherrors.ErrFailedToUpdatePassword.Error()})
 		return
 	}
 

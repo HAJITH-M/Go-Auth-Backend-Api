@@ -1,6 +1,8 @@
 package authhandler
 
 import (
+	"errors"
+	autherrors "go-auth-backend-api/internal/errors"
 	authservice "go-auth-backend-api/internal/service/authService"
 	"go-auth-backend-api/pkg/utils"
 	"net/http"
@@ -21,7 +23,7 @@ func RegisterHandler(c *gin.Context) {
 		DisplayName: req.DisplayName,
 	})
 	if err != nil {
-		if err.Error() == "Email already Exists" {
+		if errors.Is(err, autherrors.ErrEmailAlreadyExists) {
 			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 			return
 		}

@@ -1,6 +1,8 @@
 package authhandler
 
 import (
+	"errors"
+	autherrors "go-auth-backend-api/internal/errors"
 	"go-auth-backend-api/internal/repository"
 	authservice "go-auth-backend-api/internal/service/authService"
 	"go-auth-backend-api/pkg/utils"
@@ -58,19 +60,13 @@ func LoginHandler(c *gin.Context) {
 	})
 
 	if err != nil {
-		if err.Error() == "Email Not Verified" {
+		if errors.Is(err, autherrors.ErrEmailNotVerified) ||
+			errors.Is(err, autherrors.ErrAccountNotActive) ||
+			errors.Is(err, autherrors.ErrChangePasswordRequired) {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 			return
 		}
-		if err.Error() == "account is not active" {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-			return
-		}
-		if err.Error() == "Change password Required" {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": autherrors.ErrInvalidCredentials.Error()})
 		return
 	}
 

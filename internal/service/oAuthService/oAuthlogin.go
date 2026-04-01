@@ -1,7 +1,7 @@
 package oauthservice
 
 import (
-	"errors"
+	autherrors "go-auth-backend-api/internal/errors"
 	authmodel "go-auth-backend-api/internal/model/AuthModel"
 	"go-auth-backend-api/internal/repository"
 	authservice "go-auth-backend-api/internal/service/authService"
@@ -11,10 +11,6 @@ import (
 
 	"github.com/google/uuid"
 )
-
-// ErrLinkRequired is returned when a Google login attempt finds an existing password account.
-// The frontend should prompt the user to confirm linking via password.
-var ErrLinkRequired = errors.New("link_required")
 
 func GoogleOAuthLoginService(input GoogleUser, oauthRefreshToken string, oauthTokenExpiry *time.Time, ipAddress string, device string) (*authservice.LoginResult, error) {
 	const providerType = "google"
@@ -34,7 +30,7 @@ func GoogleOAuthLoginService(input GoogleUser, oauthRefreshToken string, oauthTo
 			return nil, err
 		}
 		if user == nil {
-			return nil, errors.New("invalid credentials")
+			return nil, autherrors.ErrInvalidCredentials
 		}
 
 		// Update OAuth tokens (refresh token can be empty if Google doesn't return it this time).
@@ -83,7 +79,7 @@ func GoogleOAuthLoginService(input GoogleUser, oauthRefreshToken string, oauthTo
 			}
 
 			if err := repository.CreateUserWithAuthRepo(user, newMethod); err != nil {
-				return nil, errors.New("failed to create account")
+				return nil, autherrors.ErrFailedToCreateAccount
 			}
 		} else {
 			user = userByEmail
@@ -97,7 +93,7 @@ func GoogleOAuthLoginService(input GoogleUser, oauthRefreshToken string, oauthTo
 			if existingPasswordMethod != nil {
 				// Password account exists — signal frontend to show link confirmation.
 				// We do NOT link silently. User must confirm with their password.
-				return nil, ErrLinkRequired
+				return nil, autherrors.ErrLinkRequired
 			}
 
 			// No password provider — safe to link Google directly.
@@ -114,7 +110,7 @@ func GoogleOAuthLoginService(input GoogleUser, oauthRefreshToken string, oauthTo
 			}
 
 			if err := repository.CreateAuthenticationMethodRepo(newMethod); err != nil {
-				return nil, errors.New("failed to link oauth account")
+				return nil, autherrors.ErrFailedToLinkOAuthAccount
 			}
 
 			if err := repository.UpdateUserForOAuthRepo(user.ID, input.Name, input.Picture); err != nil {
@@ -126,23 +122,23 @@ func GoogleOAuthLoginService(input GoogleUser, oauthRefreshToken string, oauthTo
 
 	// 2) Enforce your existing login rules (same error messages as password login).
 	if user.EmailVerified != true {
-		return nil, errors.New("Email Not Verified")
+		return nil, autherrors.ErrEmailNotVerified
 	}
 	if user.AccountStatus == "pending_otp" {
-		return nil, errors.New("Change password Required")
+		return nil, autherrors.ErrChangePasswordRequired
 	}
 	if user.AccountStatus != "active" {
-		return nil, errors.New("account is not active")
+		return nil, autherrors.ErrAccountNotActive
 	}
 
 	// 3) Create app JWT tokens + DB session (same behavior as LoginService).
 	accessToken, err := tokenjwt.GenerateAccessTokenJWT(user.ID, user.Email)
 	if err != nil {
-		return nil, errors.New("failed to generate token")
+		return nil, autherrors.ErrFailedToGenerateToken
 	}
 	refreshToken, err := tokenjwt.GenerateRefreshTokenJWT(user.ID, user.Email)
 	if err != nil {
-		return nil, errors.New("failed to generate token")
+		return nil, autherrors.ErrFailedToGenerateToken
 	}
 
 	session := &authmodel.Session{
@@ -157,7 +153,7 @@ func GoogleOAuthLoginService(input GoogleUser, oauthRefreshToken string, oauthTo
 	}
 
 	if err := repository.CreateSessionUserRepo(session); err != nil {
-		return nil, errors.New("failed to create session")
+		return nil, autherrors.ErrFailedToCreateSession
 	}
 	go repository.LastLoginUserUpdateRepo(user.ID)
 

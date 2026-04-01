@@ -1,7 +1,7 @@
 package ratelimiterservice
 
 import (
-	"errors"
+	autherrors "go-auth-backend-api/internal/errors"
 	"go-auth-backend-api/pkg/redis"
 	"time"
 )
@@ -10,11 +10,11 @@ func RateLimiterService(clientIP string, rateLimitKey string, countLimit int64) 
 
 	attempts, err := redis.RateLimiterRedis(clientIP, rateLimitKey, time.Minute)
 	if err != nil {
-		return errors.New("failed to generate token")
+		return autherrors.ErrRateLimiterRedis
 	}
 
 	if attempts >= countLimit {
-		return errors.New("Rate Limit exceeded try after 1 minute")
+		return autherrors.ErrRateLimitExceeded
 	}
 
 	return nil

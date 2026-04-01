@@ -3,6 +3,8 @@ package oauthhandler
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	autherrors "go-auth-backend-api/internal/errors"
 	"go-auth-backend-api/internal/config/authconfig"
 	oauthservice "go-auth-backend-api/internal/service/oAuthService"
 	"net/http"
@@ -46,14 +48,14 @@ func GoogleCallback(c *gin.Context) {
 	client := authconfig.GoogleOAuthConfig().Client(context.Background(), token)
 	userResp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user info"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": autherrors.ErrOAuthFailedToGetUserInfo.Error()})
 		return
 	}
 	defer userResp.Body.Close()
 
 	var user map[string]interface{}
 	if err := json.NewDecoder(userResp.Body).Decode(&user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "decode failed"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": autherrors.ErrOAuthDecodeFailed.Error()})
 		return
 	}
 
@@ -85,11 +87,13 @@ func GoogleCallback(c *gin.Context) {
 		c.Request.UserAgent(),
 	)
 	if err != nil {
-		if err.Error() == "Email Not Verified" || err.Error() == "account is not active" || err.Error() == "Change password Required" {
+		if errors.Is(err, autherrors.ErrEmailNotVerified) ||
+			errors.Is(err, autherrors.ErrAccountNotActive) ||
+			errors.Is(err, autherrors.ErrChangePasswordRequired) {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": autherrors.ErrInvalidCredentials.Error()})
 		return
 	}
 

@@ -1,8 +1,8 @@
 package authservice
 
 import (
-	"errors"
 	"go-auth-backend-api/internal/config/env"
+	autherrors "go-auth-backend-api/internal/errors"
 	authmodel "go-auth-backend-api/internal/model/AuthModel"
 	"go-auth-backend-api/internal/repository"
 	tokenjwt "go-auth-backend-api/pkg/tokenJWT"
@@ -20,7 +20,7 @@ func LoginService(input LoginInput) (*LoginResult, error) {
 	}
 
 	if user == nil {
-		return nil, errors.New("Invalid Credentials")
+		return nil, autherrors.ErrInvalidCredentials
 	}
 
 	var passwordMethod *authmodel.AuthenticationMethod
@@ -32,33 +32,33 @@ func LoginService(input LoginInput) (*LoginResult, error) {
 	}
 
 	if passwordMethod == nil {
-		return nil, errors.New("invalid credentials")
+		return nil, autherrors.ErrInvalidCredentials
 	}
 
 	err = utils.CompareHashedPassword(passwordMethod.PasswordHash, input.Password)
 	if err != nil {
-		return nil, errors.New("invalid credentials")
+		return nil, autherrors.ErrInvalidCredentials
 	}
 
 	if user.EmailVerified != true {
-		return nil, errors.New("Email Not Verified")
+		return nil, autherrors.ErrEmailNotVerified
 	}
 
 	if user.AccountStatus == "pending_otp" {
-		return nil, errors.New("Change password Required")
+		return nil, autherrors.ErrChangePasswordRequired
 	}
 
 	if user.AccountStatus != "active" {
-		return nil, errors.New("account is not active")
+		return nil, autherrors.ErrAccountNotActive
 	}
 
 	accessToken, err := generateAccessToken(user.ID, user.Email)
 	if err != nil {
-		return nil, errors.New("failed to generate token")
+		return nil, autherrors.ErrFailedToGenerateToken
 	}
 	refreshToken, err := generateRefreshToken(user.ID, user.Email)
 	if err != nil {
-		return nil, errors.New("failed to generate token")
+		return nil, autherrors.ErrFailedToGenerateToken
 	}
 
 	session := &authmodel.Session{
@@ -73,7 +73,7 @@ func LoginService(input LoginInput) (*LoginResult, error) {
 	}
 
 	if err := repository.CreateSessionUserRepo(session); err != nil {
-		return nil, errors.New("failed to create session")
+		return nil, autherrors.ErrFailedToCreateSession
 	}
 
 	go repository.LastLoginUserUpdateRepo(user.ID)
@@ -91,7 +91,7 @@ func RefreshTokenService(rawRefreshToken string) (*LoginResult, error) {
 	claims, err := tokenjwt.ValidateToken(rawRefreshToken, env.AppEnv.JWT_REFRESH_SECRET)
 	if err != nil {
 		log.Println("Refresh token invalid:", err)
-		return nil, errors.New("invalid refresh token")
+		return nil, autherrors.ErrInvalidRefreshToken
 	}
 
 	hash := hashToken(rawRefreshToken)
@@ -101,25 +101,25 @@ func RefreshTokenService(rawRefreshToken string) (*LoginResult, error) {
 	}
 	if session == nil {
 		log.Println("Session not found or revoked")
-		return nil, errors.New("session not found or revoked")
+		return nil, autherrors.ErrSessionNotFoundOrRevoked
 	}
 
 	if err := repository.RevokeSessionRepo(session.SessionID); err != nil {
-		return nil, errors.New("failed to revoke session")
+		return nil, autherrors.ErrFailedToRevokeSession
 	}
 
 	user, err := repository.GetUserByIDRepo(claims.UserID)
 	if err != nil || user == nil {
-		return nil, errors.New("user not found")
+		return nil, autherrors.ErrUserNotFound
 	}
 
 	accessToken, err := generateAccessToken(user.ID, user.Email)
 	if err != nil {
-		return nil, errors.New("failed to generate token")
+		return nil, autherrors.ErrFailedToGenerateToken
 	}
 	refreshToken, err := generateRefreshToken(user.ID, user.Email)
 	if err != nil {
-		return nil, errors.New("failed to generate token")
+		return nil, autherrors.ErrFailedToGenerateToken
 	}
 
 	session = &authmodel.Session{
@@ -133,7 +133,7 @@ func RefreshTokenService(rawRefreshToken string) (*LoginResult, error) {
 		UpdatedAt:        time.Now(),
 	}
 	if err := repository.CreateSessionUserRepo(session); err != nil {
-		return nil, errors.New("failed to create session")
+		return nil, autherrors.ErrFailedToCreateSession
 	}
 
 	return &LoginResult{
@@ -162,7 +162,7 @@ func UpdateVerificationEmailService(rawToken string) error {
 		return err
 	}
 	if userToken == nil {
-		return errors.New("unable to get user token")
+		return autherrors.ErrUnableToGetUserToken
 	}
 
 	if err := repository.UpdateVerificationUserTokenStatusRepo(userToken.UserID, userToken.TokenID); err != nil {

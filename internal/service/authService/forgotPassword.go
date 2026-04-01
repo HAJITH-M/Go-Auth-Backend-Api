@@ -1,8 +1,8 @@
 package authservice
 
 import (
-	"errors"
 	"fmt"
+	autherrors "go-auth-backend-api/internal/errors"
 	"go-auth-backend-api/internal/repository"
 	"go-auth-backend-api/pkg/mailer"
 	"go-auth-backend-api/pkg/redis"
@@ -17,7 +17,7 @@ func ForgotPasswordService(email string) error {
 	}
 
 	if cooldown {
-		return errors.New("please wait 30 seconds before requesting another OTP")
+		return autherrors.ErrOtpCooldown
 	}
 
 	otpStr, err := utils.GenerateOTP()
@@ -28,7 +28,7 @@ func ForgotPasswordService(email string) error {
 	ctx := "otp:" + email
 	err = redis.StoreOtp(ctx, otpStr, 5*time.Minute)
 	if err != nil {
-		return errors.New("Failed to store OTP")
+		return autherrors.ErrFailedToStoreOTP
 	}
 
 	err = repository.UpdateUserAccountStatusRepo(email, "pending_otp")
@@ -38,7 +38,7 @@ func ForgotPasswordService(email string) error {
 
 	// Send synchronously so serverless (e.g. Vercel) does not terminate before SMTP completes.
 	if err := mailer.SendOtpEmail(email, otpStr); err != nil {
-		return fmt.Errorf("failed to send OTP email: %w", err)
+		return fmt.Errorf("%w: %v", autherrors.ErrFailedToSendOTPEmail, err)
 	}
 
 	return nil
@@ -52,7 +52,7 @@ func VerifyForgotPasswordOtp(email string, otp string) error {
 	if attempts > 3 {
 		redis.DeleteOtp("otp:" + email)
 		redis.DeleteOtpAttempts(email)
-		return errors.New("too many attempts, please request a new OTP")
+		return autherrors.ErrTooManyOtpAttempts
 	}
 
 	getOtp, err := redis.GetOtp("otp:" + email)
@@ -62,7 +62,7 @@ func VerifyForgotPasswordOtp(email string, otp string) error {
 
 	err = utils.CompareHashedPassword(getOtp, otp)
 	if err != nil {
-		return errors.New("Invalid OTP")
+		return autherrors.ErrInvalidOTP
 	}
 
 	err = redis.DeleteOtp("otp:" + email)
