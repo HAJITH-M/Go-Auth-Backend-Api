@@ -1,6 +1,7 @@
 # Go Auth Backend API
 
 Explore and test the API using the interactive documentation:
+
 🔗 **Live API Docs (Try it out)**  
 [View API Docs](https://lunar-shuttle-398631.docs.buildwithfern.com/go-auth-backend-api)
 
