@@ -1,13 +1,14 @@
 # Go Auth Backend API
 
+Production-ready auth service built with Go · Gin · GORM · PostgreSQL · Redis.
+Covers the full identity lifecycle — registration, email verification, login, session management, password reset, and Google OAuth 2.0.
+Supports server and Vercel serverless from the same codebase.
+
+
 Explore and test the API using the interactive documentation:
 
 🔗 **Live API Docs (Try it out)**  
 [View API Docs](https://lunar-shuttle-398631.docs.buildwithfern.com/go-auth-backend-api)
-
-Production-ready auth service built with Go · Gin · GORM · PostgreSQL · Redis.
-Covers the full identity lifecycle — registration, email verification, login, session management, password reset, and Google OAuth 2.0.
-Supports server and Vercel serverless from the same codebase.
 
 ---
 
